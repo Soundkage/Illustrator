@@ -1,4 +1,4 @@
-var doc = app.var doc = app.activeDocument;
+var doc = app.activeDocument;
 var docLayersLength = doc.layers.length;
 var rootLayers = [];
 var pathsManifest = {
@@ -17,7 +17,7 @@ var pathsManifest = {
 }
  
 // indexOf does not work with ExtendScript https://forums.adobe.com/thread/1311522 - courtesy of Michael Hale
-if (typeof Array.prototype.indexOf != "function") { 
+if (typeof Array.prototype.indexOf !== "function") { 
    Array.prototype.indexOf = function (item) { 
        for(var i = 0; i < this.length; i++) if(item === this[i]) return i; 
        return -1; 
@@ -46,7 +46,7 @@ function chooseColor() {
    return colorRGBValue;
 }
  
-function setColor(itemIdArray, colorToSet) {
+function setColorOnPaths(itemIdArray, colorToSet) {
    for (var i = 0; i < itemIdArray.length; i++) {
        var item = doc.pathItems.getByName(itemIdArray[i]);
        if (item) {
@@ -66,32 +66,42 @@ function getRootLayers() {
  
 function createTabsAndPopulatePanels(dialog, pathIdArray) {
    for (var i = 0; i < rootLayers.length; i++) {
-       var layer = doc.layers[i];
-       var pathItems = layer.pathItems;
- 
+       var rootlayer = doc.layers[i];
+       var sublayers = rootlayer.layers;
+       
        dialog.tabs[i] = dialog.tabGroup.add ('group');
-       dialog.tabs[i].add ('statictext', undefined, layer.name);
-       dialog.tabs[i].add ('panel');
- 
-       for (var ii = 0; ii < pathItems.length; ii++) {
-           var pathItemName = pathItems[ii].name;
-           var checkbox = dialog.tabs[i].add("checkbox", undefined, pathItemName);
- 
-           if (pathIdArray.indexOf(pathItemName) !== -1) {
-               checkbox.value = true;
-           }
- 
-           checkbox.onClick = function() {
-               var isChecked = this.value;
-               var checkboxName = this.text;
-               var index = pathIdArray.indexOf(checkboxName)
-               if (isChecked) {
-                   if (index === -1) {
-                       pathIdArray.push(checkboxName);
-                   }
-               } else {
-                    if (index !== -1) {
-                       pathIdArray.splice(index, 1);
+       
+       for(var ii = 0; ii < sublayers.length; ii++) {
+            if (sublayers[ii].name === "DELETE") {
+                continue;
+            }
+           
+           dialog.tabs[i].add ('statictext', undefined, sublayers[ii].name);
+           dialog.tabs[i].add ('panel');
+           
+           var pathItems = sublayers[ii].pathItems;
+           
+           
+           for (var iii = 0; iii < pathItems.length; iii++) {
+               var pathItemName = pathItems[iii].name;
+               var checkbox = dialog.tabs[i].add("checkbox", undefined, pathItemName);
+
+               if (pathIdArray.indexOf(pathItemName) !== -1) {
+                   checkbox.value = true;
+               }
+
+               checkbox.onClick = function() {
+                   var isChecked = this.value;
+                   var checkboxName = this.text;
+                   var index = pathIdArray.indexOf(checkboxName)
+                   if (isChecked) {
+                       if (index === -1) {
+                           pathIdArray.push(checkboxName);
+                       }
+                   } else {
+                        if (index !== -1) {
+                           pathIdArray.splice(index, 1);
+                       }
                    }
                }
            }
@@ -123,8 +133,8 @@ function createLayersDialog(pathIdArray) {
    layersDialog.listBoxItem.onChange = showTab;
    function showTab() {
        if (layersDialog.listBoxItem.selection !== null) {
-           for (var j = layersDialog.tabs.length-1; j >= 0; j--) {
-               layersDialog.tabs[j].visible = false;
+           for (var i = layersDialog.tabs.length-1; i >= 0; i--) {
+               layersDialog.tabs[i].visible = false;
            }
            layersDialog.tabs[layersDialog.listBoxItem.selection.index].visible = true;
        }
@@ -137,7 +147,13 @@ function createLayersDialog(pathIdArray) {
    layersDialog.center();
    layersDialog.show();
 }
- 
+
+function setColorOnPreviewBlock(panel, color) {
+    var g = panel.graphics;
+    var formatRGBColor = [color.red/255,color.green/255,color.blue/255];
+    g.backgroundColor = g.newBrush(g.BrushType.SOLID_COLOR, formatRGBColor);
+}
+
 function createColorButtons(colorName, dialogName, pathIdArray) {
    var colorPanel = dialogName.add("panel", undefined, pathIdArray.name);
    colorPanel.orientation = "row";
@@ -147,13 +163,12 @@ function createColorButtons(colorName, dialogName, pathIdArray) {
    showSelectedColorPanel.size = [50, 20];
    showSelectedColorPanel.orientation = "row";
  
-   var colorButton = colorPanel.add("button", undefined, "Choose");
+   var colorButton = colorPanel.add("button", undefined, "Colour");
    colorButton.onClick = function() {
        var color = new RGBColor();
        color = chooseColor();
-       var g = showSelectedColorPanel.graphics;
-       g.backgroundColor = g.newBrush(g.BrushType.SOLID_COLOR, [color.red/255,color.green/255,color.blue/255]);
-       setColor(pathIdArray.idArray, color);
+       setColorOnPreviewBlock(showSelectedColorPanel, color);
+       setColorOnPaths(pathIdArray.idArray, color);
        app.redraw();
    };
  
@@ -169,7 +184,7 @@ function createDialog() {
  
    getRootLayers();
  
-   var dialog = new Window( "dialog", "Color Selection", undefined );
+   var dialog = new Window( "dialog", "Colour Selection", undefined );
    dialog.orientation = "column";
    dialog.alignChildren = ["fill", "fill"];
  
@@ -180,21 +195,3 @@ function createDialog() {
    dialog.center();
    dialog.show();
 }
-activeDocument;
-var docLayersLength = doc.layers.length;
-var rootLayers = [];
-var pathsManifest = {
-   base: {
-       name: "Base",
-       idArray: []
-   },
-   secondary: {
-       name: "Secondary",
-       idArray: []
-   },
-   tertiary: {
-       name: "Tertiary",
-       idArray: []
-   }
-}
- 
