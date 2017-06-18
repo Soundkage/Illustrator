@@ -1,6 +1,7 @@
 var doc = app.activeDocument;
 var docLayersLength = doc.layers.length;
 var rootLayers = [];
+var allCheckedPaths = [];
 var pathsManifest = {
    base: {
        name: "Base",
@@ -63,7 +64,22 @@ function getRootLayers() {
        rootLayers.push(layer.name);
    }
 }
- 
+
+function handleArrayItems(arrayToProcess, context) {
+    var isChecked = context.value;
+    var checkboxName = context.text;
+    var index = arrayToProcess.indexOf(checkboxName)
+    if (isChecked) {
+       if (index === -1) {
+           arrayToProcess.push(checkboxName);
+       }
+    } else {
+        if (index !== -1) {
+           arrayToProcess.splice(index, 1);
+       }
+    }
+}
+
 function createTabsAndPopulatePanels(dialog, pathIdArray) {
    for (var i = 0; i < rootLayers.length; i++) {
        var rootlayer = doc.layers[i];
@@ -80,35 +96,31 @@ function createTabsAndPopulatePanels(dialog, pathIdArray) {
            dialog.tabs[i].add ('panel');
            
            var pathItems = sublayers[ii].pathItems;
-           
-           
+
            for (var iii = 0; iii < pathItems.length; iii++) {
                var pathItemName = pathItems[iii].name;
                var checkbox = dialog.tabs[i].add("checkbox", undefined, pathItemName);
 
-               if (pathIdArray.indexOf(pathItemName) !== -1) {
-                   checkbox.value = true;
-               }
+                checkbox.enabled = true;
+                if (allCheckedPaths.indexOf(pathItemName) !== -1) {
+                    checkbox.enabled = false;
+                }
+               
+                if (pathIdArray.indexOf(pathItemName) !== -1) {
+                    checkbox.enabled = true;
+                    checkbox.value = true;
+                }
 
-               checkbox.onClick = function() {
-                   var isChecked = this.value;
-                   var checkboxName = this.text;
-                   var index = pathIdArray.indexOf(checkboxName)
-                   if (isChecked) {
-                       if (index === -1) {
-                           pathIdArray.push(checkboxName);
-                       }
-                   } else {
-                        if (index !== -1) {
-                           pathIdArray.splice(index, 1);
-                       }
-                   }
-               }
+                checkbox.onClick = function() {
+                    var context = this;
+                    handleArrayItems(pathIdArray, context);
+                    handleArrayItems(allCheckedPaths, context);
+                }
            }
        }
    }
 }
- 
+
 function createLayersDialog(pathIdArray) {
    var layersDialog = new Window('dialog {text: "' + pathIdArray.name + ' Color", orientation: "column", alignChildren:["fill","fill"], properties: {closeButton: false}}');
    layersDialog.main = layersDialog.add('group {preferredSize: [600, 500], alignChildren: ["left","fill"]}');
@@ -191,6 +203,10 @@ function createDialog() {
    createColorButtons( "Base Color", dialog, pathsManifest.base);
    createColorButtons( "Secondary Color", dialog, pathsManifest.secondary);
    createColorButtons( "Tertiary Color", dialog, pathsManifest.tertiary);
+    
+    var layersTree = dialog.add("treeview", undefined, "Selected Layers");
+    layersTree.orientation = "row";
+    layersTree.alignChildren = ["fill", "fill"];
  
    dialog.center();
    dialog.show();
